@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Phone,
-  Video,
   Mic,
   MicOff,
   Camera,
@@ -9,6 +8,7 @@ import {
   Minimize,
   Maximize,
 } from "lucide-react";
+import { socketService } from "../../services/socketService";
 
 const CallModal = ({
   isOpen,
@@ -17,7 +17,6 @@ const CallModal = ({
   onClose,
   callType,
   userId,
-  userName,
   targetUserId,
   targetUserName,
   isMicOn = true,
@@ -28,12 +27,13 @@ const CallModal = ({
   const [localVideoOn, setLocalVideoOn] = useState(isVideoOn);
   const [error, setError] = useState(null);
   const [isRemoteVideoReady, setIsRemoteVideoReady] = useState(false);
-  const [callStatus, setCallStatus] = useState("connecting"); // 'connecting', 'ringing', 'connected', 'ended'
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const [callStatus, setCallStatus] = useState("connecting"); // 'connecting', 'ringing', 'connected', 'ended'
   const peerConnectionRef = useRef(null);
 
+  // Function to handle video element loading
   const handleVideoLoad = (videoElement, streamType) => {
     if (videoElement) {
       videoElement.onloadedmetadata = () => {
@@ -49,6 +49,7 @@ const CallModal = ({
     }
   };
 
+  // Effect to handle video elements
   useEffect(() => {
     if (localVideoRef.current) {
       handleVideoLoad(localVideoRef.current, "Local");
@@ -72,7 +73,10 @@ const CallModal = ({
           "[CallModal] Initializing call as:",
           isInitiator ? "caller" : "receiver"
         );
+        console.log("[CallModal] User ID:", userId);
+        console.log("[CallModal] Target User ID:", targetUserId);
 
+        // Get user media
         const constraints = {
           audio: true,
           video:
@@ -85,6 +89,10 @@ const CallModal = ({
               : false,
         };
 
+        console.log(
+          "[CallModal] Requesting media with constraints:",
+          constraints
+        );
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (!isMounted) {
           stream.getTracks().forEach((track) => track.stop());
@@ -92,13 +100,16 @@ const CallModal = ({
         }
         localStreamRef.current = stream;
 
+        // Set local video
         if (localVideoRef.current && stream) {
           localVideoRef.current.srcObject = stream;
+          console.log("[CallModal] Local video stream set");
           localVideoRef.current.play().catch((err) => {
             console.error("[CallModal] Error playing local video:", err);
           });
         }
 
+        // Initialize WebRTC connection
         const configuration = {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
@@ -113,29 +124,60 @@ const CallModal = ({
         const peerConnection = new RTCPeerConnection(configuration);
         peerConnectionRef.current = peerConnection;
 
+        // Add local stream tracks to peer connection
         localStreamRef.current.getTracks().forEach((track) => {
+          console.log(
+            "[CallModal] Adding track to peer connection:",
+            track.kind
+          );
           peerConnectionRef.current.addTrack(track, localStreamRef.current);
         });
 
+        // Handle connection state changes
         peerConnection.onconnectionstatechange = () => {
+          console.log(
+            "[CallModal] Connection state:",
+            peerConnection.connectionState
+          );
           if (peerConnection.connectionState === "connected") {
+            console.log("[CallModal] Peers connected successfully");
             setCallStatus("connected");
           }
         };
 
+        // Handle ICE connection state changes
         peerConnection.oniceconnectionstatechange = () => {
-          if (peerConnection.iceConnectionState === "disconnected") {
-            setCallStatus("ended");
-          }
+          console.log(
+            "[CallModal] ICE connection state:",
+            peerConnection.iceConnectionState
+          );
+          setCallStatus("ended");
         };
 
+        // Handle signaling state changes
+        peerConnection.onsignalingstatechange = () => {
+          console.log(
+            "[CallModal] Signaling state:",
+            peerConnection.signalingState
+          );
+        };
+
+        // Handle incoming streams
         peerConnection.ontrack = (event) => {
+          console.log("[CallModal] Received remote track:", event.track.kind);
           if (remoteVideoRef.current && event.streams && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
             setIsRemoteVideoReady(true);
             setCallStatus("connected");
+            console.log("[CallModal] Remote video stream set");
 
+            remoteVideoRef.current.play().catch((err) => {
+              console.error("[CallModal] Error playing remote video:", err);
+            });
+
+            // Listen for track ended event
             event.track.onended = () => {
+              console.log("[CallModal] Remote track ended:", event.track.kind);
               if (remoteVideoRef.current?.srcObject) {
                 const tracks = remoteVideoRef.current.srcObject.getTracks();
                 if (!tracks || tracks.length === 0) {
@@ -150,34 +192,36 @@ const CallModal = ({
           }
         };
 
+        // Handle ICE candidates
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
-            if (socket && socket.emit) {
-              socket.emit("ice_candidate", {
-                candidate: event.candidate,
-                from: userId,
-                to: targetUserId,
-              });
-            }
+            console.log("[CallModal] Sending ICE candidate");
+            socketService.emit("ice_candidate", {
+              candidate: event.candidate,
+              from: userId,
+              to: targetUserId,
+            });
           }
         };
 
+        // If we're the initiator and haven't received an offer, create and send the offer
         if (isInitiator && !hasReceivedOffer) {
           setCallStatus("ringing");
+          console.log("[CallModal] Creating and sending offer as initiator");
           const offer = await peerConnection.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: callType === "video",
           });
 
           await peerConnection.setLocalDescription(offer);
+          console.log("[CallModal] Local description set");
 
-          if (socket && socket.emit) {
-            socket.emit("offer", {
-              offer,
-              from: userId,
-              to: targetUserId,
-            });
-          }
+          console.log("[CallModal] Sending offer");
+          socketService.emit("offer", {
+            offer,
+            from: userId,
+            to: targetUserId,
+          });
         }
       } catch (err) {
         console.error("[CallModal] Error initializing call:", err);
@@ -190,12 +234,15 @@ const CallModal = ({
       }
     };
 
+    // Handle incoming offer
     const handleOffer = async (data) => {
       try {
+        console.log("[CallModal] Received offer from:", data.from);
+        console.log("[CallModal] Current user:", userId);
+
         hasReceivedOffer = true;
         isInitiator = false;
         setCallStatus("ringing");
-
         if (!peerConnectionRef.current) {
           await initializeCall();
         }
@@ -203,16 +250,18 @@ const CallModal = ({
         await peerConnectionRef.current.setRemoteDescription(
           new RTCSessionDescription(data.offer)
         );
+        console.log("[CallModal] Remote description set");
+
         const answer = await peerConnectionRef.current.createAnswer();
         await peerConnectionRef.current.setLocalDescription(answer);
+        console.log("[CallModal] Local description set");
 
-        if (socket && socket.emit) {
-          socket.emit("answer", {
-            answer,
-            from: userId,
-            to: data.from,
-          });
-        }
+        console.log("[CallModal] Sending answer");
+        socketService.emit("answer", {
+          answer,
+          from: userId,
+          to: data.from,
+        });
       } catch (err) {
         console.error("[CallModal] Error handling offer:", err);
         if (isMounted) {
@@ -222,12 +271,15 @@ const CallModal = ({
       }
     };
 
+    // Handle incoming answer
     const handleAnswer = async (data) => {
       try {
+        console.log("[CallModal] Received answer from:", data.from);
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(
             new RTCSessionDescription(data.answer)
           );
+          console.log("[CallModal] Remote description set");
           setCallStatus("connected");
         }
       } catch (err) {
@@ -239,26 +291,27 @@ const CallModal = ({
       }
     };
 
+    // Handle ICE candidates
     const handleIceCandidate = async (data) => {
       try {
+        console.log("[CallModal] Received ICE candidate from:", data.from);
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.addIceCandidate(
             new RTCIceCandidate(data.candidate)
           );
+          console.log("[CallModal] ICE candidate added");
         }
       } catch (err) {
         console.error("[CallModal] Error handling ICE candidate:", err);
       }
     };
 
-    if (socket) {
-      if (socket.on) {
-        socket.on("offer", handleOffer);
-        socket.on("answer", handleAnswer);
-        socket.on("ice_candidate", handleIceCandidate);
-      }
-    }
+    // Set up socket event listeners
+    socketService.on("offer", handleOffer);
+    socketService.on("answer", handleAnswer);
+    socketService.on("ice_candidate", handleIceCandidate);
 
+    // Initialize call if we're the caller (determined by the socket event)
     if (!hasReceivedOffer) {
       isInitiator = true;
       initializeCall();
@@ -267,22 +320,26 @@ const CallModal = ({
     return () => {
       isMounted = false;
 
-      if (socket && socket.off) {
-        socket.off("offer", handleOffer);
-        socket.off("answer", handleAnswer);
-        socket.off("ice_candidate", handleIceCandidate);
-      }
+      // Cleanup socket event listeners
+      socketService.off("offer", handleOffer);
+      socketService.off("answer", handleAnswer);
+      socketService.off("ice_candidate", handleIceCandidate);
 
+      // Cleanup media streams
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {
           track.stop();
+          console.log("[CallModal] Stopped track:", track.kind);
         });
       }
 
+      // Cleanup peer connection
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
+        console.log("[CallModal] Peer connection closed");
       }
 
+      // Reset video elements
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = null;
       }
@@ -298,6 +355,7 @@ const CallModal = ({
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setLocalMicOn(!localMicOn);
+        console.log("[CallModal] Microphone toggled:", audioTrack.enabled);
       }
     }
   };
@@ -308,6 +366,7 @@ const CallModal = ({
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setLocalVideoOn(!localVideoOn);
+        console.log("[CallModal] Video toggled:", videoTrack.enabled);
       }
     }
   };
