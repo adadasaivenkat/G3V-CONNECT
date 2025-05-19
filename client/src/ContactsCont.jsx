@@ -822,7 +822,7 @@ export const ContactsCont = () => {
         selectedChat ? "translate-x-[-100%] md:translate-x-0" : "translate-x-0"
       }`}>
       {/* Profile Section */}
-      <div className="p-4 sm:p-6 border-b border-gray-700">
+      <div className="p-4 sm:p-6 border-b border-gray-200/80 dark:border-gray-700/80">
         <div className="flex items-center space-x-4">
           <div className="relative group">
             <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500/20 dark:ring-blue-400/20 transition-all duration-300 group-hover:ring-blue-500/40 dark:group-hover:ring-blue-400/40">
@@ -888,7 +888,7 @@ export const ContactsCont = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="p-3 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-200/80 dark:border-gray-700/80">
         <div className="relative">
           <Search
             className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -899,13 +899,12 @@ export const ContactsCont = () => {
             placeholder="Search contacts..."
             value={searchTerm}
             onChange={handleSearch}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 placeholder-gray-400 text-gray-200 transition-all duration-200"
-            style={{ minWidth: "150px" }}
+            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200 placeholder-gray-400 text-gray-900 dark:text-white"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto border-r border-gray-700">
+      <div className="flex-1 overflow-y-auto border-r border-gray-200/80 dark:border-gray-700/80">
         <div className="divide-y divide-gray-700">
           {searchTerm ? (
             searchResults.length > 0 ? (
