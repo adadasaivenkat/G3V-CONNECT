@@ -5,7 +5,8 @@ import animationData from "@/animations/EmptyAnimation.json";
 
 export const EmptyChatCont = ({ selectedChat }) => {
   return (
-    <div className={`flex-1 h-full bg-white dark:bg-gray-900 flex items-center justify-center transition-all duration-1000 relative overflow-hidden ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+    <div
+      className={`hidden md:flex flex-1 h-full bg-white dark:bg-gray-900 items-center justify-center transition-all duration-1000 relative overflow-hidden`}>
       <motion.div
         className="absolute inset-0 overflow-hidden"
         initial={{ opacity: 0 }}
@@ -97,10 +98,10 @@ export const EmptyChatCont = ({ selectedChat }) => {
               <div className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md group-hover:shadow-blue-500/20 transition-all duration-300">
                 <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
               </div>
-              <span className="text-sm sm:text-base md:text-lg">Real-time Chat</span>
+              <span className="text-sm sm:text-base md:text-lg">
+                Real-time Chat
+              </span>
             </motion.div>
-
-
 
             <motion.div
               className="flex items-center gap-3 text-gray-900 dark:text-gray-300 group"
@@ -109,7 +110,9 @@ export const EmptyChatCont = ({ selectedChat }) => {
               <div className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md group-hover:shadow-yellow-500/20 transition-all duration-300">
                 <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />
               </div>
-              <span className="text-sm sm:text-base md:text-lg">Smart Features</span>
+              <span className="text-sm sm:text-base md:text-lg">
+                Smart Features
+              </span>
             </motion.div>
           </div>
         </motion.div>
