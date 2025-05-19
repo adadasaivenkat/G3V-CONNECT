@@ -20,9 +20,13 @@ export const AuthProvider = ({ children }) => {
     isCallModalOpen: false,
     isCallNotificationOpen: false,
     incomingCall: null,
-    callType: null
+    callType: null,
   });
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
 
+  const handleMinimize = () => {
+    setIsCallMinimized((prev) => !prev);
+  };
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
@@ -33,7 +37,9 @@ export const AuthProvider = ({ children }) => {
         try {
           // Fetch user data from backend
           const response = await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/api/users/getUser/${user.email}`
+            `${import.meta.env.VITE_BACKEND_URL}/api/users/getUser/${
+              user.email
+            }`
           );
           const data = await response.json();
           setUserData(data);
@@ -42,7 +48,10 @@ export const AuthProvider = ({ children }) => {
           try {
             const socket = await socketService.connect(data._id);
             setSocket(socket);
-            console.log('[AuthProvider] Socket connected successfully:', socket.id);
+            console.log(
+              "[AuthProvider] Socket connected successfully:",
+              socket.id
+            );
           } catch (error) {
             console.error("[AuthProvider] Error connecting socket:", error);
             setSocket(null);
@@ -82,78 +91,81 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!socket) return;
 
-    console.log('[AuthProvider] Setting up global call event listeners');
-    console.log('[AuthProvider] Current socket state:', socket.connected ? 'Connected' : 'Disconnected');
-    console.log('[AuthProvider] Socket ID:', socket.id);
+    console.log("[AuthProvider] Setting up global call event listeners");
+    console.log(
+      "[AuthProvider] Current socket state:",
+      socket.connected ? "Connected" : "Disconnected"
+    );
+    console.log("[AuthProvider] Socket ID:", socket.id);
 
     const handleIncomingCall = (callData) => {
-      console.log('[AuthProvider] Received incoming call:', callData);
-      setGlobalCallState(prev => ({
+      console.log("[AuthProvider] Received incoming call:", callData);
+      setGlobalCallState((prev) => ({
         ...prev,
         isCallNotificationOpen: true,
         incomingCall: callData,
-        callType: callData.type
+        callType: callData.type,
       }));
     };
 
     const handleCallAccepted = (callData) => {
-      console.log('[AuthProvider] Call accepted:', callData);
-      setGlobalCallState(prev => ({
+      console.log("[AuthProvider] Call accepted:", callData);
+      setGlobalCallState((prev) => ({
         ...prev,
         isCallModalOpen: true,
         isCallNotificationOpen: false,
-        callType: callData.type
+        callType: callData.type,
       }));
     };
 
     const handleCallRejected = (callData) => {
-      console.log('[AuthProvider] Call rejected:', callData);
-      setGlobalCallState(prev => ({
+      console.log("[AuthProvider] Call rejected:", callData);
+      setGlobalCallState((prev) => ({
         ...prev,
         isCallModalOpen: false,
         isCallNotificationOpen: false,
         incomingCall: null,
-        callType: null
+        callType: null,
       }));
     };
 
     const handleCallFailed = (data) => {
-      console.log('[AuthProvider] Call failed:', data);
-      setGlobalCallState(prev => ({
+      console.log("[AuthProvider] Call failed:", data);
+      setGlobalCallState((prev) => ({
         ...prev,
         isCallModalOpen: false,
         isCallNotificationOpen: false,
         incomingCall: null,
-        callType: null
+        callType: null,
       }));
     };
 
     const handleCallEnded = (callData) => {
-      console.log('[AuthProvider] Call ended:', callData);
-      setGlobalCallState(prev => ({
+      console.log("[AuthProvider] Call ended:", callData);
+      setGlobalCallState((prev) => ({
         ...prev,
         isCallModalOpen: false,
         isCallNotificationOpen: false,
         incomingCall: null,
-        callType: null
+        callType: null,
       }));
     };
 
     // Set up socket event listeners
-    socket.on('incoming_call', handleIncomingCall);
-    socket.on('call_accepted', handleCallAccepted);
-    socket.on('call_rejected', handleCallRejected);
-    socket.on('call_failed', handleCallFailed);
-    socket.on('call_ended', handleCallEnded);
+    socket.on("incoming_call", handleIncomingCall);
+    socket.on("call_accepted", handleCallAccepted);
+    socket.on("call_rejected", handleCallRejected);
+    socket.on("call_failed", handleCallFailed);
+    socket.on("call_ended", handleCallEnded);
 
     // Cleanup function
     return () => {
-      console.log('[AuthProvider] Cleaning up global call event listeners');
-      socket.off('incoming_call', handleIncomingCall);
-      socket.off('call_accepted', handleCallAccepted);
-      socket.off('call_rejected', handleCallRejected);
-      socket.off('call_failed', handleCallFailed);
-      socket.off('call_ended', handleCallEnded);
+      console.log("[AuthProvider] Cleaning up global call event listeners");
+      socket.off("incoming_call", handleIncomingCall);
+      socket.off("call_accepted", handleCallAccepted);
+      socket.off("call_rejected", handleCallRejected);
+      socket.off("call_failed", handleCallFailed);
+      socket.off("call_ended", handleCallEnded);
     };
   }, [socket]);
 
@@ -175,50 +187,50 @@ export const AuthProvider = ({ children }) => {
 
   const handleAcceptCall = () => {
     if (!globalCallState.incomingCall) return;
-    
-    socketService.emit('accept_call', globalCallState.incomingCall);
-    setGlobalCallState(prev => ({
+
+    socketService.emit("accept_call", globalCallState.incomingCall);
+    setGlobalCallState((prev) => ({
       ...prev,
       isCallModalOpen: true,
-      isCallNotificationOpen: false
+      isCallNotificationOpen: false,
     }));
   };
 
   const handleRejectCall = () => {
     if (!globalCallState.incomingCall) return;
-    
-    socketService.emit('reject_call', globalCallState.incomingCall);
-    setGlobalCallState(prev => ({
+
+    socketService.emit("reject_call", globalCallState.incomingCall);
+    setGlobalCallState((prev) => ({
       ...prev,
       isCallModalOpen: false,
       isCallNotificationOpen: false,
       incomingCall: null,
-      callType: null
+      callType: null,
     }));
   };
 
   const handleEndCall = () => {
     // For incoming calls (receiver)
     if (globalCallState.incomingCall) {
-      socketService.emit('end_call', {
+      socketService.emit("end_call", {
         from: userData?._id,
-        to: globalCallState.incomingCall.from
+        to: globalCallState.incomingCall.from,
       });
-    } 
+    }
     // For outgoing calls (caller)
     else if (globalCallState.callType) {
-      socketService.emit('end_call', {
+      socketService.emit("end_call", {
         from: userData?._id,
-        to: selectedChat?._id
+        to: selectedChat?._id,
       });
     }
 
-    setGlobalCallState(prev => ({
+    setGlobalCallState((prev) => ({
       ...prev,
       isCallModalOpen: false,
       isCallNotificationOpen: false,
       incomingCall: null,
-      callType: null
+      callType: null,
     }));
   };
 
@@ -238,24 +250,27 @@ export const AuthProvider = ({ children }) => {
     globalCallState,
     handleAcceptCall,
     handleRejectCall,
-    handleEndCall
+    handleEndCall,
   };
 
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}
-      {globalCallState.isCallNotificationOpen && globalCallState.incomingCall && (
-        <CallNotification
-          callerName={globalCallState.incomingCall.callerName}
-          callType={globalCallState.incomingCall.type}
-          onAccept={handleAcceptCall}
-          onReject={handleRejectCall}
-          callerProfilePic={globalCallState.incomingCall.callerProfilePic}
-        />
-      )}
+      {globalCallState.isCallNotificationOpen &&
+        globalCallState.incomingCall && (
+          <CallNotification
+            callerName={globalCallState.incomingCall.callerName}
+            callType={globalCallState.incomingCall.type}
+            onAccept={handleAcceptCall}
+            onReject={handleRejectCall}
+            callerProfilePic={globalCallState.incomingCall.callerProfilePic}
+          />
+        )}
       {globalCallState.isCallModalOpen && (
         <CallModal
           isOpen={globalCallState.isCallModalOpen}
+          isMinimized={isCallMinimized}
+          onMinimize={handleMinimize}
           onClose={handleEndCall}
           callType={globalCallState.callType}
           userId={userData?._id}
