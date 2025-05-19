@@ -2,14 +2,19 @@ import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "./context/AuthProvider";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Pencil, LogOut, X, Plus, Trash2, Search, MessageCircle } from "lucide-react";
+import { Pencil, LogOut, X, Plus, Trash2, Search } from "lucide-react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
 
 export const ContactsCont = () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
-  const { email, logout, setIsProfileComplete, socket, setSelectedChat, selectedChat } = useAuth();
-  const navigate = useNavigate();
+  const {
+    email,
+    logout,
+    setIsProfileComplete,
+    socket,
+    setSelectedChat,
+    selectedChat,
+  } = useAuth();
 
   const formatTime = (date) => {
     const now = new Date();
@@ -18,29 +23,11 @@ export const ContactsCont = () => {
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
 
-    if (minutes < 1) return 'Just now';
+    if (minutes < 1) return "Just now";
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
-  };
-
-  const formatLastSeen = (lastSeenDate) => {
-    if (!lastSeenDate) return 'Never';
-    
-    const now = new Date();
-    const lastSeen = new Date(lastSeenDate);
-    const diff = now - lastSeen;
-    
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} minutes ago`;
-    if (hours < 24) return `${hours} hours ago`;
-    if (days < 7) return `${days} days ago`;
-    return lastSeen.toLocaleDateString();
   };
 
   const [contacts, setContacts] = useState([]);
@@ -48,7 +35,6 @@ export const ContactsCont = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editData, setEditData] = useState({ displayName: "", about: "" });
   const defaultImage = `${backendUrl}/uploads/default-profile.png`;
@@ -76,8 +62,10 @@ export const ContactsCont = () => {
           return;
         }
 
-        const { data } = await axios.get(`${backendUrl}/api/messages/recent/${userData._id}`);
-        
+        const { data } = await axios.get(
+          `${backendUrl}/api/messages/recent/${userData._id}`
+        );
+
         // Update cache and state
         if (data.chats && Array.isArray(data.chats)) {
           recentChatsCache.current.set(userData._id, data.chats);
@@ -97,22 +85,25 @@ export const ContactsCont = () => {
   // Set up socket event listeners
   useEffect(() => {
     if (!socket) {
-      console.log('No socket available in ContactsCont');
+      console.log("No socket available in ContactsCont");
       return;
     }
 
-    console.log('Setting up socket event listeners in ContactsCont');
-    console.log('Current socket state:', socket.connected ? 'Connected' : 'Disconnected');
-    console.log('Socket ID:', socket.id);
+    console.log("Setting up socket event listeners in ContactsCont");
+    console.log(
+      "Current socket state:",
+      socket.connected ? "Connected" : "Disconnected"
+    );
+    console.log("Socket ID:", socket.id);
 
     // Remove any existing event listeners first
-    socket.off('receive-message');
-    socket.off('message-sent');
+    socket.off("receive-message");
+    socket.off("message-sent");
     socket.offAny();
 
     const handleReceiveMessage = ({ from, message }) => {
       console.log("Received message in ContactsCont:", { from, message });
-      
+
       // Prevent duplicate message handling
       const messageId = message._id || message.id;
       if (messageId && processedMessages.current.has(messageId)) {
@@ -121,10 +112,10 @@ export const ContactsCont = () => {
       if (messageId) {
         processedMessages.current.add(messageId);
       }
-      
+
       // Update unseen messages if chat is not selected
       if (!selectedChat || selectedChat._id !== from) {
-        setUnseenMessages(prev => {
+        setUnseenMessages((prev) => {
           const newMap = new Map(prev);
           const count = (newMap.get(from) || 0) + 1;
           newMap.set(from, count);
@@ -133,23 +124,24 @@ export const ContactsCont = () => {
       }
 
       // Update recent chats when a new message is received
-      setRecentChats(prev => {
-        const existingChatIndex = prev.findIndex(chat => 
-          chat.user?._id === from || 
-          chat.user === from ||
-          chat.receiver === from ||
-          chat.sender === from
+      setRecentChats((prev) => {
+        const existingChatIndex = prev.findIndex(
+          (chat) =>
+            chat.user?._id === from ||
+            chat.user === from ||
+            chat.receiver === from ||
+            chat.sender === from
         );
-        
+
         const updatedChat = {
           user: existingChatIndex >= 0 ? prev[existingChatIndex].user : null,
           lastMessage: {
             ...message,
-            type: message.type || 'text',
+            type: message.type || "text",
             sender: from,
-            receiver: userData?._id
+            receiver: userData?._id,
           },
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         if (existingChatIndex >= 0) {
@@ -157,10 +149,10 @@ export const ContactsCont = () => {
           newChats.splice(existingChatIndex, 1);
           return [updatedChat, ...newChats];
         } else {
-          fetchUserData(from).then(userData => {
+          fetchUserData(from).then((userData) => {
             if (userData) {
               updatedChat.user = userData;
-              setRecentChats(prev => [updatedChat, ...prev]);
+              setRecentChats((prev) => [updatedChat, ...prev]);
             }
           });
           return prev;
@@ -170,24 +162,25 @@ export const ContactsCont = () => {
 
     const handleMessageSent = ({ message }) => {
       console.log("Message sent confirmation in ContactsCont:", message);
-      
-      setRecentChats(prev => {
-        const existingChatIndex = prev.findIndex(chat => 
-          chat.user?._id === message.receiver || 
-          chat.user === message.receiver ||
-          chat.receiver === message.receiver ||
-          chat.sender === message.receiver
+
+      setRecentChats((prev) => {
+        const existingChatIndex = prev.findIndex(
+          (chat) =>
+            chat.user?._id === message.receiver ||
+            chat.user === message.receiver ||
+            chat.receiver === message.receiver ||
+            chat.sender === message.receiver
         );
-        
+
         const updatedChat = {
           user: existingChatIndex >= 0 ? prev[existingChatIndex].user : null,
           lastMessage: {
             ...message,
-            type: message.type || 'text',
+            type: message.type || "text",
             sender: userData?._id,
-            receiver: message.receiver
+            receiver: message.receiver,
           },
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         if (existingChatIndex >= 0) {
@@ -195,10 +188,10 @@ export const ContactsCont = () => {
           newChats.splice(existingChatIndex, 1);
           return [updatedChat, ...newChats];
         } else {
-          fetchUserData(message.receiver).then(userData => {
+          fetchUserData(message.receiver).then((userData) => {
             if (userData) {
               updatedChat.user = userData;
-              setRecentChats(prev => [updatedChat, ...prev]);
+              setRecentChats((prev) => [updatedChat, ...prev]);
             }
           });
           return prev;
@@ -207,11 +200,20 @@ export const ContactsCont = () => {
     };
 
     // Set up socket event listeners
-    socket.on('receive-message', handleReceiveMessage);
-    socket.on('message-sent', handleMessageSent);
+    socket.on("receive-message", handleReceiveMessage);
+    socket.on("message-sent", handleMessageSent);
 
     // Log all socket events for debugging (excluding call events)
-    const excludedEvents = ['incoming_call', 'call_accepted', 'call_rejected', 'call_failed', 'call_ended', 'offer', 'answer', 'ice_candidate'];
+    const excludedEvents = [
+      "incoming_call",
+      "call_accepted",
+      "call_rejected",
+      "call_failed",
+      "call_ended",
+      "offer",
+      "answer",
+      "ice_candidate",
+    ];
     socket.onAny((event, ...args) => {
       if (!excludedEvents.includes(event)) {
         console.log(`Socket event in ContactsCont: ${event}`, args);
@@ -220,9 +222,9 @@ export const ContactsCont = () => {
 
     // Cleanup function
     return () => {
-      console.log('Cleaning up socket event listeners in ContactsCont');
-      socket.off('receive-message', handleReceiveMessage);
-      socket.off('message-sent', handleMessageSent);
+      console.log("Cleaning up socket event listeners in ContactsCont");
+      socket.off("receive-message", handleReceiveMessage);
+      socket.off("message-sent", handleMessageSent);
       socket.offAny();
     };
   }, [socket, selectedChat]);
@@ -241,8 +243,8 @@ export const ContactsCont = () => {
     };
   }, []);
 
-    const fetchContacts = async () => {
-      try {
+  const fetchContacts = async () => {
+    try {
       setLoading(true);
       const response = await axios.get(`${backendUrl}/api/contacts`, {
         headers: {
@@ -251,28 +253,23 @@ export const ContactsCont = () => {
       });
 
       // Initialize contacts with online status and lastSeen
-      const contactsWithStatus = response.data.contacts.map(contact => ({
+      const contactsWithStatus = response.data.contacts.map((contact) => ({
         ...contact,
         isOnline: false,
-        lastSeen: contact.lastSeen || null
+        lastSeen: contact.lastSeen || null,
       }));
       setContacts(contactsWithStatus);
-        setLoading(false);
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching contacts:", error);
-        toast.error("Failed to load contacts");
-        setLoading(false);
-      }
-    };
+      toast.error("Failed to load contacts");
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchContacts();
   }, [backendUrl]);
-
-  const filteredContacts = contacts.filter((contact) =>
-    contact.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const getImageUrl = (url) => {
     if (url === defaultImage) return url;
@@ -287,7 +284,9 @@ export const ContactsCont = () => {
     }
 
     try {
-      const { data } = await axios.get(`${backendUrl}/api/users/getUser/${email}`);
+      const { data } = await axios.get(
+        `${backendUrl}/api/users/getUser/${email}`
+      );
       const { displayName, about, profilePic } = data;
       setUserData(data);
       setEditData({ displayName: displayName || "", about: about || "" });
@@ -297,8 +296,8 @@ export const ContactsCont = () => {
 
       // Register user with socket
       if (socket && data._id) {
-        console.log('Registering user with socket:', data._id);
-        socket.emit('register-user', data._id);
+        console.log("Registering user with socket:", data._id);
+        socket.emit("register-user", data._id);
       }
     } catch (err) {
       console.error("Error fetching user data:", err);
@@ -336,7 +335,7 @@ export const ContactsCont = () => {
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
-          }
+          },
         }
       );
 
@@ -344,11 +343,11 @@ export const ContactsCont = () => {
         // Update local state
         setUserData(response.data.user);
         setPreviewPic(defaultImage);
-        
+
         // Update contacts list
-        setContacts(prevContacts => 
-          prevContacts.map(contact => 
-            contact && contact._id === response.data.user._id 
+        setContacts((prevContacts) =>
+          prevContacts.map((contact) =>
+            contact && contact._id === response.data.user._id
               ? { ...contact, profilePic: null }
               : contact
           )
@@ -356,15 +355,15 @@ export const ContactsCont = () => {
 
         // Emit profile update via socket
         if (socket) {
-          socket.emit('profile-updated', {
+          socket.emit("profile-updated", {
             userId: response.data.user._id,
             updatedData: {
               profilePic: null,
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           });
         }
-        
+
         toast.success("Profile picture deleted successfully");
       }
     } catch (err) {
@@ -391,7 +390,7 @@ export const ContactsCont = () => {
         `${backendUrl}/api/users/addProfilePic/${email}`,
         formData,
         {
-          headers: { 
+          headers: {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
@@ -404,12 +403,12 @@ export const ContactsCont = () => {
 
       const serverImageUrl = `${backendUrl}${data.user.profilePic}`;
       setPreviewPic(getImageUrl(serverImageUrl));
-      
+
       // Update local state immediately
-      setUserData(prev => ({ ...prev, profilePic: data.user.profilePic }));
-      setContacts(prevContacts => 
-        prevContacts.map(contact => 
-          contact && contact._id === data.user._id 
+      setUserData((prev) => ({ ...prev, profilePic: data.user.profilePic }));
+      setContacts((prevContacts) =>
+        prevContacts.map((contact) =>
+          contact && contact._id === data.user._id
             ? { ...contact, profilePic: data.user.profilePic }
             : contact
         )
@@ -417,12 +416,12 @@ export const ContactsCont = () => {
 
       // Emit profile update via socket
       if (socket) {
-        socket.emit('profile-updated', {
+        socket.emit("profile-updated", {
           userId: data.user._id,
           updatedData: {
             profilePic: data.user.profilePic,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       }
 
@@ -466,20 +465,20 @@ export const ContactsCont = () => {
         );
         setIsProfileComplete(true);
         setIsEditOpen(false);
-        
+
         // Emit profile update via socket
         if (socket) {
-          socket.emit('profile-updated', {
+          socket.emit("profile-updated", {
             userId: response.data.user._id,
             updatedData: {
               displayName: response.data.user.displayName,
               about: response.data.user.about,
               profilePic: response.data.user.profilePic,
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           });
         }
-        
+
         toast.success("Profile updated successfully");
       }
     } catch (err) {
@@ -493,18 +492,22 @@ export const ContactsCont = () => {
       if (socket && userData?._id) {
         const lastSeen = new Date();
         // Update lastSeen in database
-        await axios.post(`${backendUrl}/api/users/${userData._id}/updateLastSeen`, {
-          lastSeen: lastSeen
-        }, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        await axios.post(
+          `${backendUrl}/api/users/${userData._id}/updateLastSeen`,
+          {
+            lastSeen: lastSeen,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
           }
-        });
-        
+        );
+
         // Emit offline status
-        socket.emit('user-offline', {
+        socket.emit("user-offline", {
           userId: userData._id,
-          lastSeen: lastSeen
+          lastSeen: lastSeen,
         });
       }
       await logout();
@@ -525,12 +528,15 @@ export const ContactsCont = () => {
     }
 
     try {
-      const { data } = await axios.get(`${backendUrl}/api/contacts/search?term=${term}`);
+      const { data } = await axios.get(
+        `${backendUrl}/api/contacts/search?term=${term}`
+      );
       // Filter out current user and only include users that match search
-      const filteredResults = data.users.filter(user => 
-        user._id !== userData?._id && 
-        (user.displayName?.toLowerCase().includes(term.toLowerCase()) ||
-         user.email?.toLowerCase().includes(term.toLowerCase()))
+      const filteredResults = data.users.filter(
+        (user) =>
+          user._id !== userData?._id &&
+          (user.displayName?.toLowerCase().includes(term.toLowerCase()) ||
+            user.email?.toLowerCase().includes(term.toLowerCase()))
       );
       setSearchResults(filteredResults);
     } catch (err) {
@@ -541,24 +547,14 @@ export const ContactsCont = () => {
 
   // Update selected chat when clicking on a contact
   const handleContactClick = (contact) => {
-    console.log('Selecting contact:', contact);
+    console.log("Selecting contact:", contact);
     setSelectedChat(contact);
-    if (window.innerWidth < 768) {
-      const contactsElement = document.querySelector('.contacts-container');
-      if (contactsElement) {
-        contactsElement.style.transform = 'translateX(-100%)';
-      }
-      const chatElement = document.querySelector('.chat-container');
-      if (chatElement) {
-        chatElement.style.transform = 'translateX(0)';
-      }
-    }
   };
 
   // Clear unseen messages when chat is selected
   useEffect(() => {
     if (selectedChat) {
-      setUnseenMessages(prev => {
+      setUnseenMessages((prev) => {
         const newMap = new Map(prev);
         newMap.delete(selectedChat._id);
         return newMap;
@@ -568,22 +564,22 @@ export const ContactsCont = () => {
 
   const getMessagePreview = (message) => {
     if (!message) return "No messages yet";
-    
+
     // Check message type
-    if (message.type === 'text') {
-      return message.content || message.text || '';
-    } else if (message.type === 'image') {
-      return '🖼️ Image';
-    } else if (message.type === 'video') {
-      return '🎥 Video';
-    } else if (message.type === 'audio') {
-      return '🎤 Voice message';
-    } else if (message.type === 'file') {
-      return '📎 Document';
-    } else if (message.type === 'gif') {
-      return '🎭 GIF';
+    if (message.type === "text") {
+      return message.content || message.text || "";
+    } else if (message.type === "image") {
+      return "🖼️ Image";
+    } else if (message.type === "video") {
+      return "🎥 Video";
+    } else if (message.type === "audio") {
+      return "🎤 Voice message";
+    } else if (message.type === "file") {
+      return "📎 Document";
+    } else if (message.type === "gif") {
+      return "🎭 GIF";
     } else {
-      return message.content || message.text || '';
+      return message.content || message.text || "";
     }
   };
 
@@ -592,130 +588,147 @@ export const ContactsCont = () => {
     if (!socket) return;
 
     const handleUserOnline = (userId) => {
-      console.log('User online:', userId);
-      setContacts(prev => prev.map(contact => {
-        if (contact._id === userId) {
-          return { 
-            ...contact, 
-            isOnline: true,
-            lastSeen: new Date()
-          };
-        }
-        return contact;
-      }));
-    };
-
-    const handleUserOffline = async (data) => {
-      console.log('User offline:', data);
-      try {
-        // Update lastSeen in database
-        await axios.post(`${backendUrl}/api/users/${data.userId}/updateLastSeen`, {
-          lastSeen: data.lastSeen
-        }, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          }
-        });
-
-        setContacts(prev => prev.map(contact => {
-          if (contact._id === data.userId) {
-            return { 
-              ...contact, 
-              isOnline: false,
-              lastSeen: data.lastSeen
+      console.log("User online:", userId);
+      setContacts((prev) =>
+        prev.map((contact) => {
+          if (contact._id === userId) {
+            return {
+              ...contact,
+              isOnline: true,
+              lastSeen: new Date(),
             };
           }
           return contact;
-        }));
+        })
+      );
+    };
+
+    const handleUserOffline = async (data) => {
+      console.log("User offline:", data);
+      try {
+        // Update lastSeen in database
+        await axios.post(
+          `${backendUrl}/api/users/${data.userId}/updateLastSeen`,
+          {
+            lastSeen: data.lastSeen,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        setContacts((prev) =>
+          prev.map((contact) => {
+            if (contact._id === data.userId) {
+              return {
+                ...contact,
+                isOnline: false,
+                lastSeen: data.lastSeen,
+              };
+            }
+            return contact;
+          })
+        );
       } catch (err) {
-        console.error('Error updating last seen:', err);
+        console.error("Error updating last seen:", err);
       }
     };
 
     const handleOnlineUsers = (onlineUsers) => {
-      console.log('Received online users:', onlineUsers);
-      setContacts(prev => prev.map(contact => ({
-        ...contact,
-        isOnline: onlineUsers.includes(contact._id)
-      })));
+      console.log("Received online users:", onlineUsers);
+      setContacts((prev) =>
+        prev.map((contact) => ({
+          ...contact,
+          isOnline: onlineUsers.includes(contact._id),
+        }))
+      );
     };
 
     const handleProfileUpdate = (data) => {
-      console.log('Profile updated:', data);
+      console.log("Profile updated:", data);
       const { userId, updatedData } = data;
-      
+
       // Update contacts list
-      setContacts(prev => prev.map(contact => {
-        if (contact._id === userId) {
-          return {
-            ...contact,
-            ...updatedData,
-            updatedAt: new Date()
-          };
-        }
-        return contact;
-      }));
+      setContacts((prev) =>
+        prev.map((contact) => {
+          if (contact._id === userId) {
+            return {
+              ...contact,
+              ...updatedData,
+              updatedAt: new Date(),
+            };
+          }
+          return contact;
+        })
+      );
 
       // Update selected chat if it's the current user
       if (selectedChat?._id === userId) {
-        setSelectedChat(prev => ({
+        setSelectedChat((prev) => ({
           ...prev,
           ...updatedData,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }));
       }
 
       // Update recent chats
-      setRecentChats(prev => prev.map(chat => {
-        if (chat.user?._id === userId) {
-          return {
-            ...chat,
-            user: {
-              ...chat.user,
-              ...updatedData,
-              updatedAt: new Date()
-            }
-          };
-        }
-        return chat;
-      }));
+      setRecentChats((prev) =>
+        prev.map((chat) => {
+          if (chat.user?._id === userId) {
+            return {
+              ...chat,
+              user: {
+                ...chat.user,
+                ...updatedData,
+                updatedAt: new Date(),
+              },
+            };
+          }
+          return chat;
+        })
+      );
     };
 
     // Remove any existing listeners first
-    socket.off('user-online');
-    socket.off('user-offline');
-    socket.off('online-users');
-    socket.off('profile-updated');
+    socket.off("user-online");
+    socket.off("user-offline");
+    socket.off("online-users");
+    socket.off("profile-updated");
 
     // Set up new listeners
-    socket.on('user-online', handleUserOnline);
-    socket.on('user-offline', handleUserOffline);
-    socket.on('online-users', handleOnlineUsers);
-    socket.on('profile-updated', handleProfileUpdate);
+    socket.on("user-online", handleUserOnline);
+    socket.on("user-offline", handleUserOffline);
+    socket.on("online-users", handleOnlineUsers);
+    socket.on("profile-updated", handleProfileUpdate);
 
     // Request initial online status and last seen times for all contacts
-    socket.emit('get-online-users');
+    socket.emit("get-online-users");
 
     return () => {
-      socket.off('user-online', handleUserOnline);
-      socket.off('user-offline', handleUserOffline);
-      socket.off('online-users', handleOnlineUsers);
-      socket.off('profile-updated', handleProfileUpdate);
+      socket.off("user-online", handleUserOnline);
+      socket.off("user-offline", handleUserOffline);
+      socket.off("online-users", handleOnlineUsers);
+      socket.off("profile-updated", handleProfileUpdate);
     };
   }, [socket, backendUrl, selectedChat]);
 
   const renderContact = (contact) => {
     // Find the recent chat for this contact
-    const recentChat = recentChats.find(chat => 
-      chat.user?._id === contact._id || 
-      chat?.user === contact._id ||
-      chat?.receiver === contact._id ||
-      chat?.sender === contact._id
+    const recentChat = recentChats.find(
+      (chat) =>
+        chat.user?._id === contact._id ||
+        chat?.user === contact._id ||
+        chat?.receiver === contact._id ||
+        chat?.sender === contact._id
     );
 
     const lastMessage = recentChat?.lastMessage;
     const messagePreview = getMessagePreview(lastMessage);
-    const lastMessageTime = lastMessage?.createdAt ? formatTime(new Date(lastMessage.createdAt)) : '';
+    const lastMessageTime = lastMessage?.createdAt
+      ? formatTime(new Date(lastMessage.createdAt))
+      : "";
     const isMyMessage = lastMessage?.sender === userData?._id;
 
     return (
@@ -723,9 +736,10 @@ export const ContactsCont = () => {
         key={contact._id}
         onClick={() => handleContactClick(contact)}
         className={`flex items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 cursor-pointer ${
-          selectedChat?._id === contact._id ? 'bg-gray-100 dark:bg-gray-800' : ''
-        }`}
-      >
+          selectedChat?._id === contact._id
+            ? "bg-gray-100 dark:bg-gray-800"
+            : ""
+        }`}>
         <div className="relative">
           <Avatar className="w-12 h-12">
             <AvatarImage
@@ -759,7 +773,7 @@ export const ContactsCont = () => {
                 </span>
               )}
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {contact.isOnline ? 'Online' : lastMessageTime}
+                {contact.isOnline ? "Online" : lastMessageTime}
               </span>
             </div>
           </div>
@@ -783,7 +797,7 @@ export const ContactsCont = () => {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex items-center justify-center h-full bg-white dark:bg-gray-800">
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 border-4 border-blue-500/30 dark:border-blue-400/30 rounded-full animate-pulse"></div>
           <div className="absolute inset-2 border-t-4 border-blue-500 dark:border-blue-400 rounded-full animate-spin"></div>
@@ -793,7 +807,7 @@ export const ContactsCont = () => {
 
   if (error)
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex items-center justify-center h-full bg-white dark:bg-gray-800">
         <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
           <p className="text-red-500 dark:text-red-400 text-lg font-semibold">
             {error}
@@ -803,10 +817,13 @@ export const ContactsCont = () => {
     );
 
   return (
-    <div className={`relative w-full h-full flex flex-col bg-white dark:bg-gray-900 text-black dark:text-white transition-colors duration-200 fixed inset-0 md:relative md:inset-auto w-full md:w-[35vw] lg:w-[30vw] xl:w-[20vw] border-r border-gray-200/80 dark:border-gray-700/80 contacts-container transform transition-transform duration-300 ease-in-out ${selectedChat ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'}`}>
+    <div
+      className={`relative w-full h-full flex flex-col bg-white dark:bg-gray-900 text-black dark:text-white transition-colors duration-200 fixed inset-0 md:relative md:inset-auto w-full md:w-[35vw] lg:w-[30vw] xl:w-[20vw] border-r border-gray-200/80 dark:border-gray-700/80 contacts-container transform transition-transform duration-300 ease-in-out ${
+        selectedChat ? "translate-x-[-100%] md:translate-x-0" : "translate-x-0"
+      }`}>
       {/* Profile Section */}
-      <div className="p-4 sm:p-6 border-b border-gray-200/80 dark:border-gray-700/80">
-        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+      <div className="p-4 sm:p-6 border-b border-gray-700">
+        <div className="flex items-center space-x-4">
           <div className="relative group">
             <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500/20 dark:ring-blue-400/20 transition-all duration-300 group-hover:ring-blue-500/40 dark:group-hover:ring-blue-400/40">
               <AvatarImage
@@ -841,7 +858,7 @@ export const ContactsCont = () => {
             onChange={handleFileChange}
             className="hidden"
           />
-          <div className="flex-1 text-center sm:text-left">
+          <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white truncate cursor-default">
               {truncateName(userData?.displayName || "Unknown")}
             </h2>
@@ -871,25 +888,33 @@ export const ContactsCont = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="p-4 border-b border-gray-200/80 dark:border-gray-700/80">
+      <div className="p-3 border-b border-gray-700">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Search
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            size={20}
+          />
           <input
             type="text"
             placeholder="Search contacts..."
             value={searchTerm}
             onChange={handleSearch}
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200 placeholder-gray-400 text-gray-900 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 placeholder-gray-400 text-gray-200 transition-all duration-200"
+            style={{ minWidth: "150px" }}
           />
         </div>
       </div>
 
-      {/* Contacts List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-gray-200/80 dark:divide-gray-700/80">
+      <div className="flex-1 overflow-y-auto border-r border-gray-700">
+        <div className="divide-y divide-gray-700">
           {searchTerm ? (
-            // Show search results
-            searchResults.map(contact => renderContact(contact))
+            searchResults.length > 0 ? (
+              searchResults.map((contact) => renderContact(contact))
+            ) : (
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                No results found
+              </div>
+            )
           ) : isLoadingChats ? (
             <div className="flex items-center justify-center p-4">
               <div className="relative w-12 h-12">
@@ -897,9 +922,12 @@ export const ContactsCont = () => {
                 <div className="absolute inset-2 border-t-4 border-blue-500 dark:border-blue-400 rounded-full animate-spin"></div>
               </div>
             </div>
+          ) : recentChats.length > 0 ? (
+            recentChats.map((chat) => chat?.user && renderContact(chat.user))
           ) : (
-            // Show recent chats
-            recentChats.map(chat => chat?.user && renderContact(chat.user))
+            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+              No recent conversations
+            </div>
           )}
         </div>
       </div>
