@@ -905,7 +905,7 @@ export const ContactsCont = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto border-r border-gray-200/80 dark:border-gray-700/80">
-        <div className="divide-y divide-gray-700">
+        <div className="divide-y divide-gray-200 dark:divide-gray-600">
           {searchTerm ? (
             searchResults.length > 0 ? (
               searchResults.map((contact) => renderContact(contact))
