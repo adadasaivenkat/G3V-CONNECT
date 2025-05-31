@@ -111,8 +111,6 @@ const ChatHeader = ({ selectedChat, userData, backendUrl, onBack }) => {
         }
         setIsRinging(false);
         setCallType(null);
-
-        // You could add a toast notification here
         console.log("Call ended by the other user");
       }
     };
@@ -120,7 +118,6 @@ const ChatHeader = ({ selectedChat, userData, backendUrl, onBack }) => {
     const handleCallAccepted = (data) => {
       if (data.from === selectedChat._id || data.to === selectedChat._id) {
         setIsRinging(false);
-        // You could navigate to a call screen here or handle differently
         console.log("Call accepted");
       }
     };
@@ -136,6 +133,18 @@ const ChatHeader = ({ selectedChat, userData, backendUrl, onBack }) => {
       }
     };
 
+    const handleUserBusy = (data) => {
+      if (data.from === selectedChat._id) {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        setIsRinging(false);
+        setCallType(null);
+        console.log("User is busy with another call");
+        // You could add a toast notification here
+      }
+    };
+
     socket.on("user-online", handleUserOnline);
     socket.on("user-offline", handleUserOffline);
     socket.on("online-users", handleOnlineUsers);
@@ -143,6 +152,7 @@ const ChatHeader = ({ selectedChat, userData, backendUrl, onBack }) => {
     socket.on("call_ended", handleCallEnded);
     socket.on("call_accepted", handleCallAccepted);
     socket.on("call_rejected", handleCallRejected);
+    socket.on("user_busy", handleUserBusy);
 
     setUserStatus({
       isOnline: selectedChat.isOnline || false,
@@ -159,6 +169,7 @@ const ChatHeader = ({ selectedChat, userData, backendUrl, onBack }) => {
       socket.off("call_ended", handleCallEnded);
       socket.off("call_accepted", handleCallAccepted);
       socket.off("call_rejected", handleCallRejected);
+      socket.off("user_busy", handleUserBusy);
 
       if (timerRef.current) {
         clearInterval(timerRef.current);
