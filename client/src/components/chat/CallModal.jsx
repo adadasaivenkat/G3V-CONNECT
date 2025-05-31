@@ -3,8 +3,8 @@ import {
   Phone,
   Mic,
   MicOff,
-  Camera,
-  CameraOff,
+  Video,
+  VideoOff,
   Minimize,
   Maximize,
 } from "lucide-react";
@@ -149,6 +149,17 @@ const CallModal = ({
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
+
+        // Set initial track states based on props
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = isMicOn;
+          console.log("[CallModal] Initial audio track state:", track.enabled);
+        });
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = isVideoOn;
+          console.log("[CallModal] Initial video track state:", track.enabled);
+        });
+
         localStreamRef.current = stream;
 
         // Set local video using the new handler
@@ -179,11 +190,16 @@ const CallModal = ({
 
         // Add local stream tracks to peer connection
         localStreamRef.current.getTracks().forEach((track) => {
-          console.log(
-            "[CallModal] Adding track to peer connection:",
-            track.kind
-          );
-          peerConnectionRef.current.addTrack(track, localStreamRef.current);
+          console.log("[CallModal] Adding track to peer connection:", track.kind, "enabled:", track.enabled);
+          const sender = peerConnectionRef.current.addTrack(track, localStreamRef.current);
+          // Store the sender reference for later use
+          if (track.kind === 'video') {
+            videoSenderRef.current = sender;
+          } else if (track.kind === 'audio') {
+            audioSenderRef.current = sender;
+            // Ensure the audio track state is properly set in the peer connection
+            sender.track.enabled = track.enabled;
+          }
         });
 
         // Handle connection state changes
@@ -496,8 +512,16 @@ const CallModal = ({
 
         // Add local stream tracks to peer connection
         localStreamRef.current.getTracks().forEach((track) => {
-          console.log("[CallModal] Adding track to peer connection:", track.kind);
-          peerConnectionRef.current.addTrack(track, localStreamRef.current);
+          console.log("[CallModal] Adding track to peer connection:", track.kind, "enabled:", track.enabled);
+          const sender = peerConnectionRef.current.addTrack(track, localStreamRef.current);
+          // Store the sender reference for later use
+          if (track.kind === 'video') {
+            videoSenderRef.current = sender;
+          } else if (track.kind === 'audio') {
+            audioSenderRef.current = sender;
+            // Ensure the audio track state is properly set in the peer connection
+            sender.track.enabled = track.enabled;
+          }
         });
 
         // Check current signaling state before setting remote description
@@ -567,25 +591,44 @@ const CallModal = ({
 
   const toggleMic = () => {
     if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setLocalMicOn(!localMicOn);
-        console.log("[CallModal] Microphone toggled:", audioTrack.enabled);
+      const audioTracks = localStreamRef.current.getAudioTracks();
+      if (audioTracks.length > 0) {
+        const newState = !localMicOn;
+        audioTracks.forEach(track => {
+          track.enabled = newState;
+        });
+        
+        // Update the audio track in the peer connection
+        if (peerConnectionRef.current) {
+          const senders = peerConnectionRef.current.getSenders();
+          const audioSender = senders.find(sender => sender.track?.kind === 'audio');
+          if (audioSender) {
+            audioSender.track.enabled = newState;
+          }
+        }
+        
+        setLocalMicOn(newState);
+        console.log("[CallModal] Microphone toggled:", newState);
       }
     }
   };
 
   const toggleVideo = () => {
     if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
+      const videoTracks = localStreamRef.current.getVideoTracks();
+      if (videoTracks.length > 0) {
+        videoTracks.forEach(track => {
+          track.enabled = !track.enabled;
+        });
         setLocalVideoOn(!localVideoOn);
-        console.log("[CallModal] Video toggled:", videoTrack.enabled);
+        console.log("[CallModal] Video toggled:", videoTracks[0].enabled);
       }
     }
   };
+
+  // Add refs for track senders
+  const videoSenderRef = useRef(null);
+  const audioSenderRef = useRef(null);
 
   const cleanupResources = () => {
     console.log("[CallModal] Cleaning up resources");
@@ -611,6 +654,10 @@ const CallModal = ({
           sender.track.stop();
         }
       });
+
+      // Reset sender refs
+      videoSenderRef.current = null;
+      audioSenderRef.current = null;
 
       // Close the peer connection
       peerConnectionRef.current.close();
@@ -749,9 +796,9 @@ const CallModal = ({
                     : "bg-red-500 hover:bg-red-600"
                 }`}>
                 {localVideoOn ? (
-                  <Camera className="w-6 h-6 text-white" />
+                  <Video className="w-6 h-6 text-white" />
                 ) : (
-                  <CameraOff className="w-6 h-6 text-white" />
+                  <VideoOff className="w-6 h-6 text-white" />
                 )}
               </button>
             )}
@@ -779,6 +826,22 @@ const CallModal = ({
                 <MicOff className="w-4 h-4 text-white" />
               )}
             </button>
+
+            {callType === "video" && (
+              <button
+                onClick={toggleVideo}
+                className={`p-2 rounded-full transition-colors ${
+                  localVideoOn
+                    ? "bg-gray-600 hover:bg-gray-700"
+                    : "bg-red-500 hover:bg-red-600"
+                }`}>
+                {localVideoOn ? (
+                  <Video className="w-4 h-4 text-white" />
+                ) : (
+                  <VideoOff className="w-4 h-4 text-white" />
+                )}
+              </button>
+            )}
 
             <button
               onClick={onClose}
