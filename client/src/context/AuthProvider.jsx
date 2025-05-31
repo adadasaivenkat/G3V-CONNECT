@@ -100,6 +100,17 @@ export const AuthProvider = ({ children }) => {
 
     const handleIncomingCall = (callData) => {
       console.log("[AuthProvider] Received incoming call:", callData);
+      
+      // Check if user is already in a call
+      if (globalCallState.isCallModalOpen || globalCallState.isCallNotificationOpen) {
+        console.log("[AuthProvider] User is busy, sending busy signal");
+        socketService.emit("user_busy", {
+          to: callData.from,
+          from: userData?._id
+        });
+        return;
+      }
+
       setGlobalCallState((prev) => ({
         ...prev,
         isCallNotificationOpen: true,
@@ -275,8 +286,8 @@ export const AuthProvider = ({ children }) => {
           callType={globalCallState.callType}
           userId={userData?._id}
           userName={userData?.displayName}
-          targetUserId={globalCallState.incomingCall?.from}
-          targetUserName={globalCallState.incomingCall?.callerName}
+          targetUserId={globalCallState.incomingCall ? globalCallState.incomingCall.from : selectedChat?._id}
+          targetUserName={globalCallState.incomingCall ? globalCallState.incomingCall.callerName : selectedChat?.displayName}
           socket={socket}
         />
       )}
