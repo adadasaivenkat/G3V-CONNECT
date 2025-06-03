@@ -83,6 +83,12 @@ const CallModal = ({
     let isInitiator = false;
     let hasReceivedOffer = false;
 
+    // Determine if we're the initiator based on whether we have a targetUserId
+    // If we have a targetUserId, we're the caller (initiator)
+    // If we don't have a targetUserId, we're the callee (receiver)
+    isInitiator = !!initialTargetUserId;
+    console.log("[CallModal] Role determined:", isInitiator ? "caller" : "receiver");
+
     const handleUserBusy = (data) => {
       console.log("[CallModal] Received busy signal from:", data.from);
       setError("User is busy with another call");
@@ -326,10 +332,29 @@ const CallModal = ({
           return;
         }
 
-        // Log current signaling state
+        // Log current signaling state and connection state
         console.log("[CallModal] Current signaling state:", peerConnectionRef.current.signalingState);
+        console.log("[CallModal] Current connection state:", peerConnectionRef.current.connectionState);
+        console.log("[CallModal] Is initiator:", isInitiator);
 
-        // Only set remote description if we're in the correct state
+        // If we're in stable state, we might need to recreate the offer
+        if (peerConnectionRef.current.signalingState === "stable" && isInitiator) {
+          console.log("[CallModal] In stable state as initiator, recreating offer");
+          const offer = await peerConnectionRef.current.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: callType === "video",
+          });
+          await peerConnectionRef.current.setLocalDescription(offer);
+          console.log("[CallModal] Sending new offer");
+          socketService.emit("offer", {
+            offer,
+            from: userId,
+            to: data.from,
+          });
+          return;
+        }
+
+        // Only set remote description if we're in have-local-offer state
         if (peerConnectionRef.current.signalingState === "have-local-offer") {
           console.log("[CallModal] Setting remote description (answer)");
           await peerConnectionRef.current.setRemoteDescription(
@@ -393,7 +418,6 @@ const CallModal = ({
         // Reset state
         setCurrentTargetUserId(data.from);
         hasReceivedOffer = true;
-        isInitiator = false;
         setCallStatus("ringing");
         hasRemoteDescriptionRef.current = false;
         iceCandidateQueueRef.current = [];
